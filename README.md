@@ -34,7 +34,7 @@ Setiap microservice memiliki database terpisah (1 layanan 1 database) untuk isol
 
 ## Prerequisites
 
-- Docker Desktop untuk macOS (atau Docker Engine + Docker Compose)
+- Docker Desktop (atau Docker Engine + Docker Compose)
 - Node.js 18+ (untuk development lokal)
 
 ### Install Docker Desktop
