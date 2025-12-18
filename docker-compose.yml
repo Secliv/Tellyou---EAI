@@ -167,6 +167,32 @@ services:
     networks:
       - customer-network
 
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      # Use Docker service names for internal communication
+      # For browser access, use localhost (handled by vite proxy)
+      - VITE_API_BASE_URL=http://localhost:3000
+      - VITE_INVENTORY_API_URL=http://localhost:3001
+      - VITE_PAYMENT_API_URL=http://localhost:3002
+      - VITE_ORDER_API_URL=http://localhost:3003
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - user-service
+      - inventory-service
+    networks:
+      - shared-network
+    command: npm run dev -- --host
+
 networks:
   provider-network:
     driver: bridge

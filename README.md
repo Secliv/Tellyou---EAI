@@ -37,6 +37,21 @@ Setiap microservice memiliki database terpisah (1 layanan 1 database) untuk isol
 - Docker Desktop (atau Docker Engine + Docker Compose)
 - Node.js 18+ (untuk development lokal)
 
+## Frontend
+
+Frontend application tersedia di folder `frontend/` menggunakan React + Vite.
+
+**Quick Start:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend akan berjalan di http://localhost:5173
+
+Lihat `frontend/README.md` untuk dokumentasi lengkap.
+
 ### Install Docker Desktop
 
 1. Download Docker Desktop dari: https://www.docker.com/products/docker-desktop/
