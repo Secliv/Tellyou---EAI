@@ -1,23 +1,23 @@
-# Ingredient Management Service
+# Inventory Management Service
 
 Microservice untuk mengelola bahan kue, memperbarui stok, dan menangani pesanan dari toko kue.
 
 ## Endpoints
 
-- `GET /ingredients` - Mendapatkan daftar bahan kue yang tersedia
+- `GET /inventories` - Mendapatkan daftar bahan kue yang tersedia
 - `POST /order` - Membuat pesanan bahan kue
 - `POST /update-stock` - Memperbarui stok bahan kue setelah pesanan diterima
 
 ## Database
 
 PostgreSQL dengan tabel:
-- `ingredients` (id, name, stock, price, supplier_id)
-- `orders` (id, ingredient_id, quantity, order_status, customer_id)
+- `inventories` (id, name, stock, price, supplier_id)
+- `orders` (id, inventory_id, quantity, order_status, customer_id)
 
 ## GraphQL Schema
 
 ```graphql
-type Ingredient {
+type Inventory {
   id: ID!
   name: String!
   stock: Int!
@@ -27,8 +27,8 @@ type Ingredient {
 
 type Order {
   id: ID!
-  ingredientId: ID!
-  ingredient: Ingredient
+  inventoryId: ID!
+  inventory: Inventory
   quantity: Int!
   orderStatus: OrderStatus!
   customerId: ID!
@@ -44,10 +44,10 @@ enum OrderStatus {
 
 type Query {
   # Mendapatkan daftar bahan kue yang tersedia
-  ingredients: [Ingredient!]!
+  inventories: [Inventory!]!
   
   # Mendapatkan detail bahan berdasarkan ID
-  ingredient(id: ID!): Ingredient
+  inventory(id: ID!): Inventory
   
   # Mendapatkan daftar pesanan
   orders: [Order!]!
@@ -59,16 +59,16 @@ type Query {
 type Mutation {
   # Membuat pesanan bahan kue
   createOrder(
-    ingredientId: ID!
+    inventoryId: ID!
     quantity: Int!
     customerId: ID!
   ): Order!
   
   # Memperbarui stok bahan kue setelah pesanan diterima
   updateStock(
-    ingredientId: ID!
+    inventoryId: ID!
     quantity: Int!
-  ): Ingredient!
+  ): Inventory!
   
   # Update status pesanan
   updateOrderStatus(

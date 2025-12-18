@@ -11,7 +11,7 @@ Microservice untuk mengupdate stok bahan kue di toko setelah pesanan diterima da
 
 PostgreSQL dengan tabel:
 - `payments` (id, order_id, amount, payment_status, payment_date)
-- `stock_updates` (id, ingredient_id, quantity, update_date)
+- `stock_updates` (id, inventory_id, quantity, update_date)
 
 ## GraphQL Schema
 
@@ -27,7 +27,7 @@ type Payment {
 
 type StockUpdate {
   id: ID!
-  ingredientId: ID!
+  inventoryId: ID!
   quantity: Int!
   updateDate: String!
   createdAt: String
@@ -49,7 +49,7 @@ type Query {
   payment(id: ID!): Payment
   
   # Mendapatkan daftar update stok
-  stockUpdates(ingredientId: ID): [StockUpdate!]!
+  stockUpdates(inventoryId: ID): [StockUpdate!]!
   
   # Mendapatkan detail update stok
   stockUpdate(id: ID!): StockUpdate
@@ -58,7 +58,7 @@ type Query {
 type Mutation {
   # Mengupdate stok bahan kue setelah menerima pasokan dari provider
   updateStock(
-    ingredientId: ID!
+    inventoryId: ID!
     quantity: Int!
   ): StockUpdate!
   

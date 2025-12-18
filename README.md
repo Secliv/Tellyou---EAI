@@ -6,7 +6,7 @@ Sistem manajemen bahan kue dengan arsitektur microservices yang terdiri dari 2 c
 
 ### Provider-Service (Container Besar)
 1. **User Service** - Menangani data pengguna (autentikasi, autorisasi, dan manajemen profil)
-2. **Ingredient Management Service** - Mengelola bahan kue, memperbarui stok, dan menangani pesanan
+2. **Inventory Management Service** - Mengelola bahan kue, memperbarui stok, dan menangani pesanan
 3. **Payment Processing Service** - Memproses pembayaran dari toko kue
 
 ### Customer-Service (Container Besar)
@@ -23,7 +23,7 @@ Setiap microservice memiliki database terpisah (1 layanan 1 database) untuk isol
 /project-root
 ├── /provider-service
 │   ├── /user-service
-│   ├── /ingredient-service
+│   ├── /inventory-service
 │   └── /payment-service
 ├── /customer-service
 │   ├── /order-service
@@ -109,8 +109,8 @@ docker compose restart
 - POST /auth/login - Login pengguna
 - POST /auth/register - Registrasi pengguna baru
 
-### Ingredient Management Service
-- GET /ingredients - Mendapatkan daftar bahan kue
+### Inventory Management Service
+- GET /inventories - Mendapatkan daftar bahan kue
 - POST /order - Membuat pesanan bahan kue
 - POST /update-stock - Memperbarui stok bahan kue
 

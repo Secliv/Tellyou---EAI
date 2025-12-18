@@ -1,7 +1,7 @@
 {
-  "name": "ingredient-service",
+  "name": "inventory-service",
   "version": "1.0.0",
-  "description": "Ingredient Management Service - Mengelola bahan kue, memperbarui stok, dan menangani pesanan",
+  "description": "Inventory Management Service - Mengelola bahan kue, memperbarui stok, dan menangani pesanan",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -10,7 +10,7 @@
   },
   "keywords": [
     "microservice",
-    "ingredient",
+    "inventory",
     "management"
   ],
   "author": "",

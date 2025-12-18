@@ -35,36 +35,36 @@ services:
     networks:
       - provider-network
 
-  # Provider-Service: Ingredient Management Service
-  ingredient-service:
+  # Provider-Service: Inventory Management Service
+  inventory-service:
     build:
-      context: ./provider-service/ingredient-service
+      context: ./provider-service/inventory-service
       dockerfile: Dockerfile
-    container_name: ingredient-service
+    container_name: inventory-service
     ports:
       - "3001:3000"
     environment:
       - NODE_ENV=development
-      - DB_HOST=ingredient-db
+      - DB_HOST=inventory-db
       - DB_PORT=5432
-      - DB_NAME=ingredient_db
+      - DB_NAME=inventory_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
     depends_on:
-      - ingredient-db
+      - inventory-db
     networks:
       - provider-network
       - shared-network
 
-  ingredient-db:
+  inventory-db:
     image: postgres:15-alpine
-    container_name: ingredient-db
+    container_name: inventory-db
     environment:
-      - POSTGRES_DB=ingredient_db
+      - POSTGRES_DB=inventory_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     volumes:
-      - ingredient-db-data:/var/lib/postgresql/data
+      - inventory-db-data:/var/lib/postgresql/data
     networks:
       - provider-network
 
@@ -177,7 +177,7 @@ networks:
 
 volumes:
   user-db-data:
-  ingredient-db-data:
+  inventory-db-data:
   payment-db-data:
   order-db-data:
   stock-payment-db-data:

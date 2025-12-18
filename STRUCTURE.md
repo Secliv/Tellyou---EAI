@@ -28,7 +28,7 @@ tellyou_eai/
 │   │   ├── package.json
 │   │   └── README.md
 │   │
-│   ├── ingredient-service/              # Microservice 2: Ingredient Management
+│   ├── inventory-service/              # Microservice 2: Inventory Management
 │   │   ├── src/
 │   │   │   ├── controllers/
 │   │   │   ├── models/
@@ -112,11 +112,11 @@ tellyou_eai/
   - `users` (id, username, email, password_hash, role, created_at, updated_at)
   - `user_profiles` (id, user_id, full_name, phone, address, created_at, updated_at)
 
-#### Ingredient Management Service
-- **Database**: `ingredient_db` (PostgreSQL)
+#### Inventory Management Service
+- **Database**: `inventory_db` (PostgreSQL)
 - **Tabel**:
-  - `ingredients` (id, name, stock, price, supplier_id)
-  - `orders` (id, ingredient_id, quantity, order_status, customer_id)
+  - `inventories` (id, name, stock, price, supplier_id)
+  - `orders` (id, inventory_id, quantity, order_status, customer_id)
 
 #### Payment Processing Service
 - **Database**: `payment_db` (PostgreSQL)
@@ -134,12 +134,12 @@ tellyou_eai/
 - **Database**: `stock_payment_db` (PostgreSQL)
 - **Tabel**:
   - `payments` (id, order_id, amount, payment_status, payment_date)
-  - `stock_updates` (id, ingredient_id, quantity, update_date)
+  - `stock_updates` (id, inventory_id, quantity, update_date)
 
 ## Port Mapping
 
 - **User Service**: `3000:3000`
-- **Ingredient Service**: `3001:3000`
+- **Inventory Service**: `3001:3000`
 - **Payment Service**: `3002:3000`
 - **Order Service**: `3003:3000`
 - **Stock-Payment Service**: `3004:3000`

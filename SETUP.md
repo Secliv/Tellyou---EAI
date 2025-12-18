@@ -91,7 +91,7 @@ docker compose logs
 
 # Cek logs service tertentu
 docker compose logs user-service
-docker compose logs ingredient-service
+docker compose logs inventory-service
 ```
 
 ## Akses Services
@@ -99,7 +99,7 @@ docker compose logs ingredient-service
 Setelah semua services berjalan, akses melalui:
 
 - **User Service**: http://localhost:3000
-- **Ingredient Service**: http://localhost:3001
+- **Inventory Service**: http://localhost:3001
 - **Payment Service**: http://localhost:3002
 - **Order Service**: http://localhost:3003
 - **Stock-Payment Service**: http://localhost:3004
