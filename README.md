@@ -6,7 +6,7 @@ Sistem manajemen bahan kue dengan arsitektur microservices yang terdiri dari 2 c
 
 ### Provider-Service (Container Besar)
 1. **User Service** - Menangani data pengguna (autentikasi, autorisasi, dan manajemen profil)
-2. **Inventory Management Service** - Mengelola bahan kue, memperbarui stok, dan menangani pesanan
+2. **Inventory Management Service** - Mengelola bahan kue dan memperbarui stok
 3. **Payment Processing Service** - Memproses pembayaran dari toko kue
 
 ### Customer-Service (Container Besar)
