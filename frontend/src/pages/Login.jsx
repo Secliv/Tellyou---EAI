@@ -29,10 +29,19 @@ function Login() {
 
     try {
       const response = await authService.login(formData.email, formData.password)
-      login(response.data.token, response.data.user)
-      navigate('/dashboard')
+      console.log('Login response:', response) // Debug log
+      
+      // Axios wraps the response, so response.data is the actual response body
+      if (response.data && response.data.success && response.data.data) {
+        login(response.data.data.token, response.data.data.user)
+        navigate('/dashboard')
+      } else {
+        console.error('Invalid response structure:', response.data)
+        setError('Invalid response from server')
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.')
+      console.error('Login error:', err)
+      setError(err.response?.data?.message || err.message || 'Login failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -81,4 +90,5 @@ function Login() {
 }
 
 export default Login
+
 

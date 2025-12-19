@@ -169,3 +169,4 @@ Frontend terhubung ke `shared-network` untuk komunikasi dengan backend services.
 3. **Debugging**: Buka browser DevTools untuk melihat network requests dan errors
 4. **Environment**: Gunakan `.env` file untuk override environment variables jika perlu
 
+

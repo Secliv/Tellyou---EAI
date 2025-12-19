@@ -48,10 +48,19 @@ function Register() {
         password: formData.password,
         role: formData.role,
       })
-      login(response.data.token, response.data.user)
-      navigate('/dashboard')
+      console.log('Register response:', response) // Debug log
+      
+      // Axios wraps the response, so response.data is the actual response body
+      if (response.data && response.data.success && response.data.data) {
+        login(response.data.data.token, response.data.data.user)
+        navigate('/dashboard')
+      } else {
+        console.error('Invalid response structure:', response.data)
+        setError('Invalid response from server')
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      console.error('Register error:', err)
+      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -137,4 +146,5 @@ function Register() {
 }
 
 export default Register
+
 
