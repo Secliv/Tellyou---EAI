@@ -1,0 +1,6 @@
+## How to Run
+
+1. Install Docker Desktop
+2. Clone repository
+3. Run:
+   docker compose up --build
