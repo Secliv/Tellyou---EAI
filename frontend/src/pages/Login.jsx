@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import authService from '../services/authService'
 import './Auth.css'
 
@@ -13,6 +14,7 @@ function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
 
   const handleChange = (e) => {
     setFormData({
@@ -25,23 +27,32 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    // Validasi semua field wajib
+    if (!formData.email || !formData.password) {
+      setError('Email dan Password wajib diisi')
+      toast.error('Email dan Password wajib diisi')
+      return
+    }
+
     setLoading(true)
 
     try {
       const response = await authService.login(formData.email, formData.password)
-      console.log('Login response:', response) // Debug log
       
-      // Axios wraps the response, so response.data is the actual response body
       if (response.data && response.data.success && response.data.data) {
-        login(response.data.data.token, response.data.data.user)
+        const userData = response.data.data.user
+        login(response.data.data.token, userData)
+        toast.success(`Login berhasil! Selamat datang, ${userData.username}`)
         navigate('/dashboard')
       } else {
-        console.error('Invalid response structure:', response.data)
         setError('Invalid response from server')
+        toast.error('Login gagal. Response tidak valid.')
       }
     } catch (err) {
-      console.error('Login error:', err)
-      setError(err.response?.data?.message || err.message || 'Login failed. Please try again.')
+      const errorMsg = err.response?.data?.message || err.message || 'Login gagal. Silakan coba lagi.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -50,11 +61,14 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login</h2>
+        <div className="auth-header">
+          <h2>🍰 Login</h2>
+          <p>Sistem Manajemen Bahan Kue</p>
+        </div>
         {error && <div className="error-message">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email <span className="required">*</span></label>
             <input
               type="email"
               id="email"
@@ -62,11 +76,12 @@ function Login() {
               value={formData.email}
               onChange={handleChange}
               required
-              placeholder="Enter your email"
+              placeholder="Masukkan email"
             />
+            {!formData.email && <span className="field-hint">Email wajib diisi</span>}
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Password <span className="required">*</span></label>
             <input
               type="password"
               id="password"
@@ -74,15 +89,17 @@ function Login() {
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter your password"
+              placeholder="Masukkan password"
+              minLength={6}
             />
+            {!formData.password && <span className="field-hint">Password wajib diisi</span>}
           </div>
           <button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Memproses...' : 'Login'}
           </button>
         </form>
         <p className="auth-link">
-          Don't have an account? <Link to="/register">Register here</Link>
+          Belum punya akun? <Link to="/register">Daftar disini</Link>
         </p>
       </div>
     </div>
@@ -90,5 +107,3 @@ function Login() {
 }
 
 export default Login
-
-

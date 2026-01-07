@@ -22,6 +22,22 @@
   text-align: center;
 }
 
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.8rem;
+}
+
+.auth-header p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -102,6 +118,36 @@
   padding: 2rem;
   font-size: 1.2rem;
   color: #666;
+}
+
+/* Required field indicator */
+.required {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: #e74c3c;
+}
+
+/* Invalid input styling */
+.form-group input:invalid:not(:placeholder-shown),
+.form-group select:invalid {
+  border-color: #e74c3c;
+}
+
+.form-group input:valid:not(:placeholder-shown) {
+  border-color: #27ae60;
 }
 
 

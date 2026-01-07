@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import authService from '../services/authService'
 import './Auth.css'
 
@@ -10,12 +11,13 @@ function Register() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'user',
+    role: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
 
   const handleChange = (e) => {
     setFormData({
@@ -29,13 +31,28 @@ function Register() {
     e.preventDefault()
     setError('')
 
+    // Validasi semua field wajib
+    if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword || !formData.role) {
+      setError('Semua field wajib diisi')
+      toast.error('Semua field wajib diisi')
+      return
+    }
+
+    if (formData.username.length < 3) {
+      setError('Username minimal 3 karakter')
+      toast.error('Username minimal 3 karakter')
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+      setError('Password tidak cocok')
+      toast.error('Password tidak cocok')
       return
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+      setError('Password minimal 6 karakter')
+      toast.error('Password minimal 6 karakter')
       return
     }
 
@@ -48,19 +65,20 @@ function Register() {
         password: formData.password,
         role: formData.role,
       })
-      console.log('Register response:', response) // Debug log
       
-      // Axios wraps the response, so response.data is the actual response body
       if (response.data && response.data.success && response.data.data) {
-        login(response.data.data.token, response.data.data.user)
+        const userData = response.data.data.user
+        login(response.data.data.token, userData)
+        toast.success(`Registrasi berhasil! Selamat datang, ${userData.username}`)
         navigate('/dashboard')
       } else {
-        console.error('Invalid response structure:', response.data)
-        setError('Invalid response from server')
+        setError('Response tidak valid dari server')
+        toast.error('Registrasi gagal')
       }
     } catch (err) {
-      console.error('Register error:', err)
-      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.')
+      const errorMsg = err.response?.data?.message || err.message || 'Registrasi gagal. Silakan coba lagi.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -69,11 +87,14 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Register</h2>
+        <div className="auth-header">
+          <h2>🍰 Daftar Akun</h2>
+          <p>Sistem Manajemen Bahan Kue</p>
+        </div>
         {error && <div className="error-message">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username <span className="required">*</span></label>
             <input
               type="text"
               id="username"
@@ -81,11 +102,13 @@ function Register() {
               value={formData.username}
               onChange={handleChange}
               required
-              placeholder="Enter your username"
+              placeholder="Masukkan username"
+              minLength={3}
             />
+            {!formData.username && <span className="field-hint">Username wajib diisi (min. 3 karakter)</span>}
           </div>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email <span className="required">*</span></label>
             <input
               type="email"
               id="email"
@@ -93,11 +116,12 @@ function Register() {
               value={formData.email}
               onChange={handleChange}
               required
-              placeholder="Enter your email"
+              placeholder="Masukkan email"
             />
+            {!formData.email && <span className="field-hint">Email wajib diisi</span>}
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Password <span className="required">*</span></label>
             <input
               type="password"
               id="password"
@@ -105,12 +129,13 @@ function Register() {
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter your password"
+              placeholder="Masukkan password (min. 6 karakter)"
               minLength={6}
             />
+            {!formData.password && <span className="field-hint">Password wajib diisi (min. 6 karakter)</span>}
           </div>
           <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label htmlFor="confirmPassword">Konfirmasi Password <span className="required">*</span></label>
             <input
               type="password"
               id="confirmPassword"
@@ -118,27 +143,34 @@ function Register() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              placeholder="Confirm your password"
+              placeholder="Ulangi password"
             />
+            {!formData.confirmPassword && <span className="field-hint">Konfirmasi password wajib diisi</span>}
+            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+              <span className="field-error">Password tidak cocok</span>
+            )}
           </div>
           <div className="form-group">
-            <label htmlFor="role">Role</label>
+            <label htmlFor="role">Role <span className="required">*</span></label>
             <select
               id="role"
               name="role"
               value={formData.role}
               onChange={handleChange}
+              required
             >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="">-- Pilih Role --</option>
+              <option value="user">🏪 User (Toko Kue)</option>
+              <option value="admin">👑 Admin</option>
             </select>
+            {!formData.role && <span className="field-hint">Role wajib dipilih</span>}
           </div>
           <button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? 'Memproses...' : 'Daftar'}
           </button>
         </form>
         <p className="auth-link">
-          Already have an account? <Link to="/login">Login here</Link>
+          Sudah punya akun? <Link to="/login">Login disini</Link>
         </p>
       </div>
     </div>
@@ -146,5 +178,3 @@ function Register() {
 }
 
 export default Register
-
-

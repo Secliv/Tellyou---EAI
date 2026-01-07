@@ -1,69 +1,283 @@
 # Order Management Service
 
-Microservice untuk menangani pemesanan yang dilakukan oleh toko kue dan melacak status pesanan.
+Order Management Service adalah bagian dari Customer-Service dalam arsitektur microservices sistem manajemen bahan kue. Service ini bertanggung jawab untuk menangani pemesanan bahan kue dan melacak status pesanan.
+
+## Teknologi
+
+- **Node.js** - Runtime JavaScript
+- **Express** - Web framework
+- **Apollo Server 4** - GraphQL server
+- **PostgreSQL** - Database
+- **Docker** - Containerization
 
 ## Endpoints
 
-- `POST /order` - Membuat pesanan bahan kue dari provider
-- `GET /order/{id}` - Menampilkan status pesanan dan detail lainnya
+### GraphQL Endpoint
 
-## Database
+**URL:** `http://localhost:3003/graphql`
 
-PostgreSQL dengan tabel:
-- `orders` (id, customer_id, total_amount, order_date, order_status)
-
-## GraphQL Schema
+#### Queries
 
 ```graphql
-type Order {
-  id: ID!
-  customerId: ID!
-  totalAmount: Float!
-  orderDate: String!
-  orderStatus: OrderStatus!
-  createdAt: String
-  updatedAt: String
+# Get order by ID
+query GetOrder($id: ID!) {
+  order(id: $id) {
+    success
+    message
+    order {
+      id
+      customerId
+      customerName
+      items {
+        ingredientId
+        name
+        quantity
+        price
+        unit
+      }
+      totalPrice
+      status
+      notes
+      shippingAddress
+      createdAt
+      updatedAt
+    }
+  }
 }
 
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
+# Get all orders with filters
+query GetOrders($customerId: Int, $status: OrderStatus, $limit: Int, $offset: Int) {
+  orders(customerId: $customerId, status: $status, limit: $limit, offset: $offset) {
+    success
+    message
+    orders {
+      id
+      customerId
+      customerName
+      totalPrice
+      status
+      createdAt
+    }
+    total
+  }
 }
 
-type Query {
-  # Menampilkan status pesanan dan detail lainnya
-  order(id: ID!): Order
-  
-  # Mendapatkan daftar pesanan berdasarkan customer
-  orders(customerId: ID!): [Order!]!
-  
-  # Mendapatkan semua pesanan
-  allOrders: [Order!]!
-}
-
-type Mutation {
-  # Membuat pesanan bahan kue dari provider
-  createOrder(
-    customerId: ID!
-    totalAmount: Float!
-  ): Order!
-  
-  # Update status pesanan
-  updateOrderStatus(
-    id: ID!
-    status: OrderStatus!
-  ): Order!
+# Get order status
+query GetOrderStatus($id: ID!) {
+  orderStatus(id: $id) {
+    success
+    message
+    order {
+      id
+      status
+    }
+  }
 }
 ```
 
-## Menjalankan
+#### Mutations
+
+```graphql
+# Create new order (POST /order)
+mutation CreateOrder($input: CreateOrderInput!) {
+  createOrder(input: $input) {
+    success
+    message
+    order {
+      id
+      customerId
+      customerName
+      items {
+        ingredientId
+        name
+        quantity
+        price
+      }
+      totalPrice
+      status
+      createdAt
+    }
+  }
+}
+
+# Update order status
+mutation UpdateOrderStatus($id: ID!, $status: OrderStatus!) {
+  updateOrderStatus(id: $id, status: $status) {
+    success
+    message
+    order {
+      id
+      status
+      updatedAt
+    }
+  }
+}
+
+# Cancel order
+mutation CancelOrder($id: ID!) {
+  cancelOrder(id: $id) {
+    success
+    message
+    order {
+      id
+      status
+    }
+  }
+}
+```
+
+### REST Endpoints (Backward Compatibility)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/order` | Membuat pesanan baru |
+| GET | `/order/:id` | Menampilkan status pesanan |
+| GET | `/orders` | Menampilkan semua pesanan |
+| PUT | `/order/:id/status` | Update status pesanan |
+| GET | `/health` | Health check |
+
+## Contoh Request
+
+### Create Order (REST)
 
 ```bash
+curl -X POST http://localhost:3003/order \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": 1,
+    "customerName": "Toko Kue Makmur",
+    "items": [
+      {
+        "ingredientId": 1,
+        "name": "Tepung Terigu",
+        "quantity": 10,
+        "price": 15000,
+        "unit": "kg"
+      },
+      {
+        "ingredientId": 2,
+        "name": "Gula Pasir",
+        "quantity": 5,
+        "price": 12000,
+        "unit": "kg"
+      }
+    ],
+    "notes": "Pengiriman pagi hari",
+    "shippingAddress": "Jl. Raya No. 123, Jakarta"
+  }'
+```
+
+### Create Order (GraphQL)
+
+```bash
+curl -X POST http://localhost:3003/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation CreateOrder($input: CreateOrderInput!) { createOrder(input: $input) { success message order { id totalPrice status } } }",
+    "variables": {
+      "input": {
+        "customerId": 1,
+        "customerName": "Toko Kue Makmur",
+        "items": [
+          {
+            "ingredientId": 1,
+            "name": "Tepung Terigu",
+            "quantity": 10,
+            "price": 15000
+          }
+        ]
+      }
+    }
+  }'
+```
+
+### Get Order (REST)
+
+```bash
+curl http://localhost:3003/order/1
+```
+
+### Get Order (GraphQL)
+
+```bash
+curl -X POST http://localhost:3003/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query GetOrder($id: ID!) { order(id: $id) { success message order { id customerName items { name quantity price } totalPrice status createdAt } } }",
+    "variables": { "id": "1" }
+  }'
+```
+
+## Order Status
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Pesanan baru dibuat, menunggu konfirmasi |
+| `confirmed` | Pesanan dikonfirmasi |
+| `processing` | Pesanan sedang diproses |
+| `shipped` | Pesanan sudah dikirim |
+| `delivered` | Pesanan sudah diterima |
+| `cancelled` | Pesanan dibatalkan |
+
+## Database Schema
+
+```sql
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL,
+  customer_name VARCHAR(100),
+  items JSONB NOT NULL,
+  total_price DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  notes TEXT,
+  shipping_address TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## Running Locally
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 15+
+
+### Setup
+
+1. Copy environment file:
+```bash
+cp .env.example .env
+```
+
+2. Install dependencies:
+```bash
 npm install
+```
+
+3. Run migrations:
+```bash
+npm run migrate
+```
+
+4. Start the service:
+```bash
 npm run dev
 ```
 
+### With Docker
+
+```bash
+docker-compose up order-service order-db
+```
+
+## Testing
+
+```bash
+npm test
+```
+
+## GraphQL Playground
+
+Setelah service berjalan, akses GraphQL Playground di:
+`http://localhost:3003/graphql`

@@ -19,17 +19,17 @@ const services = [
   {
     name: 'inventory-service',
     path: 'provider-service/inventory-service',
-    hasMigration: false,
+    hasMigration: true,
   },
   {
     name: 'payment-service',
     path: 'provider-service/payment-service',
-    hasMigration: false,
+    hasMigration: true,
   },
   {
     name: 'order-service',
     path: 'customer-service/order-service',
-    hasMigration: false,
+    hasMigration: true,
   },
   {
     name: 'stock-payment-service',

@@ -5,8 +5,11 @@
   "scripts": {
     "migrate": "node scripts/migrate-all.js",
     "migrate:user": "node scripts/migrate-all.js user-service",
+    "migrate:docker": "bash scripts/migrate-docker.sh",
     "setup-env": "node scripts/setup-env.js",
-    "dev": "node scripts/dev.js"
+    "dev": "node scripts/dev.js",
+    "health-check": "node scripts/health-check.js",
+    "check": "bash scripts/quick-check.sh"
   },
   "keywords": [
     "microservices",
@@ -15,6 +18,9 @@
     "postgresql"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "axios": "^1.13.2",
+    "pg": "^8.16.3"
+  }
 }
-
