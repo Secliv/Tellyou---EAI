@@ -1,20 +1,155 @@
-const express = require('express');
-require('dotenv').config();
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { ApolloServer } = require('@apollo/server');
+const { expressMiddleware } = require('@apollo/server/express4');
+const { ApolloServerPluginLandingPageLocalDefault } = require('@apollo/server/plugin/landingPage/default');
+
+const typeDefs = require("./graphql/typeDefs");
+const resolvers = require("./graphql/resolver");
+const transactionRoutes = require("./routes/TransactionRoutes");
+const db = require("./config/database");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3004;
 
+// Middleware
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes will be added here
-// POST /update-stock
-// POST /payment
+// Request logging (development only)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.path}`);
+    next();
+  });
+}
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'stock-payment-service' });
+// Health Check Endpoint
+app.get('/health', async (req, res) => {
+  try {
+    const dbResult = await db.query('SELECT NOW()');
+    
+    res.status(200).json({
+      status: 'healthy',
+      service: process.env.SERVICE_NAME || 'stock-payment-service',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      dbTime: dbResult.rows[0].now,
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      service: process.env.SERVICE_NAME || 'stock-payment-service',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
+    });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Stock and Payment Update Service running on port ${PORT}`);
+// Info Endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: process.env.SERVICE_NAME || 'stock-payment-service',
+    version: '1.0.0',
+    description: 'Integration Facade & Fact Service for Order-Payment-Inventory Orchestration',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      graphql: '/graphql'
+    }
+  });
 });
 
+// REST API Routes
+app.use("/api", transactionRoutes);
+
+// Initialize Apollo Server
+async function startApolloServer() {
+  const apolloServer = new ApolloServer({
+    typeDefs,
+    resolvers,
+    introspection: true,
+    csrfPrevention: false, // Disable CSRF for development (Apollo Sandbox needs GET requests)
+    plugins: [
+      // Enable Apollo Sandbox landing page
+      ApolloServerPluginLandingPageLocalDefault({ embed: true })
+    ],
+  });
+
+  await apolloServer.start();
+
+  // Apply GraphQL middleware
+  app.use('/graphql',
+    cors({
+      origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+      credentials: true
+    }),
+    express.json(),
+    expressMiddleware(apolloServer, {
+      context: async ({ req }) => {
+        // Add any context data needed for resolvers
+        const token = req.headers.authorization || '';
+        return { token, req };
+      }
+    })
+  );
+
+  // 404 Handler (must be after all routes including GraphQL)
+  app.use((req, res) => {
+    res.status(404).json({
+      error: 'Not Found',
+      message: `Route ${req.method} ${req.path} not found`,
+      availableEndpoints: ['/', '/health', '/api', '/graphql']
+    });
+  });
+
+  // Error Handler
+  app.use((err, req, res, next) => {
+    console.error('❌ Error:', err);
+    res.status(err.status || 500).json({
+      error: err.message || 'Internal Server Error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  });
+
+  console.log(`✅ Apollo Server started - GraphQL endpoint: http://localhost:${PORT}/graphql`);
+}
+
+// Start listening after Apollo Server initialization
+async function startServer() {
+  await testDatabaseConnection();
+  await startApolloServer();
+  
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log('═══════════════════════════════════════════════════');
+    console.log(`🚀 ${process.env.SERVICE_NAME || 'Stock-Payment-Service'} Started`);
+    console.log('═══════════════════════════════════════════════════');
+    console.log(`📡 Server:      http://localhost:${PORT}`);
+    console.log(`🏥 Health:      http://localhost:${PORT}/health`);
+    console.log(`📊 GraphQL:     http://localhost:${PORT}/graphql`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log('═══════════════════════════════════════════════════');
+  });
+}
+
+// Database connection test on startup
+async function testDatabaseConnection() {
+  try {
+    const result = await db.query('SELECT NOW()');
+    console.log('✅ Database connected:', result.rows[0].now);
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    console.error('⚠️  Service will start but database operations will fail');
+    return false;
+  }
+}
+
+// Start server
+startServer().catch(console.error);
+
+module.exports = app;

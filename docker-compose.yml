@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Provider-Service: User Service
   user-service:
@@ -18,7 +16,8 @@ services:
       - DB_PASSWORD=postgres
       - JWT_SECRET=your-secret-key-here
     depends_on:
-      - user-db
+      user-db:
+        condition: service_healthy
     networks:
       - provider-network
       - shared-network
@@ -26,6 +25,8 @@ services:
   user-db:
     image: postgres:15-alpine
     container_name: user-db
+    ports:
+      - "5433:5432"
     environment:
       - POSTGRES_DB=user_db
       - POSTGRES_USER=postgres
@@ -34,6 +35,11 @@ services:
       - user-db-data:/var/lib/postgresql/data
     networks:
       - provider-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Provider-Service: Inventory Management Service
   inventory-service:
@@ -45,13 +51,15 @@ services:
       - "3001:3000"
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - DB_HOST=inventory-db
       - DB_PORT=5432
       - DB_NAME=inventory_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
     depends_on:
-      - inventory-db
+      inventory-db:
+        condition: service_healthy
     networks:
       - provider-network
       - shared-network
@@ -59,6 +67,8 @@ services:
   inventory-db:
     image: postgres:15-alpine
     container_name: inventory-db
+    ports:
+      - "5434:5432"
     environment:
       - POSTGRES_DB=inventory_db
       - POSTGRES_USER=postgres
@@ -67,6 +77,11 @@ services:
       - inventory-db-data:/var/lib/postgresql/data
     networks:
       - provider-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Provider-Service: Payment Processing Service
   payment-service:
@@ -78,13 +93,15 @@ services:
       - "3002:3000"
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - DB_HOST=payment-db
       - DB_PORT=5432
       - DB_NAME=payment_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
     depends_on:
-      - payment-db
+      payment-db:
+        condition: service_healthy
     networks:
       - provider-network
       - shared-network
@@ -92,6 +109,8 @@ services:
   payment-db:
     image: postgres:15-alpine
     container_name: payment-db
+    ports:
+      - "5436:5432"
     environment:
       - POSTGRES_DB=payment_db
       - POSTGRES_USER=postgres
@@ -100,6 +119,11 @@ services:
       - payment-db-data:/var/lib/postgresql/data
     networks:
       - provider-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Customer-Service: Order Management Service
   order-service:
@@ -111,13 +135,19 @@ services:
       - "3003:3000"
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - DB_HOST=order-db
       - DB_PORT=5432
       - DB_NAME=order_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
+      # Internal Service Integration URLs
+      - INVENTORY_SERVICE_URL=http://inventory-service:3000
     depends_on:
-      - order-db
+      order-db:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
     networks:
       - customer-network
       - shared-network
@@ -125,6 +155,8 @@ services:
   order-db:
     image: postgres:15-alpine
     container_name: order-db
+    ports:
+      - "5435:5432"
     environment:
       - POSTGRES_DB=order_db
       - POSTGRES_USER=postgres
@@ -133,6 +165,11 @@ services:
       - order-db-data:/var/lib/postgresql/data
     networks:
       - customer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Customer-Service: Stock and Payment Update Service
   stock-payment-service:
@@ -144,13 +181,25 @@ services:
       - "3004:3000"
     environment:
       - NODE_ENV=development
+      - PORT=3000
       - DB_HOST=stock-payment-db
       - DB_PORT=5432
       - DB_NAME=stock_payment_db
       - DB_USER=postgres
       - DB_PASSWORD=postgres
+      # Internal Service Integration URLs (ENV-based service URL pattern)
+      - ORDER_SERVICE_URL=http://order-service:3000
+      - PAYMENT_SERVICE_URL=http://payment-service:3000
+      - INVENTORY_SERVICE_URL=http://inventory-service:3000
     depends_on:
-      - stock-payment-db
+      stock-payment-db:
+        condition: service_healthy
+      order-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
     networks:
       - customer-network
       - shared-network
@@ -158,6 +207,8 @@ services:
   stock-payment-db:
     image: postgres:15-alpine
     container_name: stock-payment-db
+    ports:
+      - "5437:5432"
     environment:
       - POSTGRES_DB=stock_payment_db
       - POSTGRES_USER=postgres
@@ -166,6 +217,36 @@ services:
       - stock-payment-db-data:/var/lib/postgresql/data
     networks:
       - customer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      # Use Docker service names for internal communication
+      # For browser access, use localhost (handled by vite proxy)
+      - VITE_API_BASE_URL=http://localhost:3000
+      - VITE_INVENTORY_API_URL=http://localhost:3001
+      - VITE_PAYMENT_API_URL=http://localhost:3002
+      - VITE_ORDER_API_URL=http://localhost:3003
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - user-service
+      - inventory-service
+    networks:
+      - shared-network
 
 networks:
   provider-network:
