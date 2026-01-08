@@ -27,17 +27,18 @@ class TransactionService {
             throw new Error('Insufficient stock for requested items');
         }
 
-        // 3. Call order service to create order
+        // 3. Call order service to create order via GraphQL
         const orderResponse = await this.callOrderService(orderData);
 
-        // 4. Calculate total cost
-        const totalCost = this.calculateTotalCost(orderData.items || [], orderData.total_amount);
+        // 4. Calculate total cost (use order totalPrice if available, otherwise calculate)
+        const totalCost = orderResponse.order?.totalPrice || 
+                         this.calculateTotalCost(orderData.items || [], orderData.total_amount);
 
         // 5. Save to fact table
         const transaction = await TransactionModel.createTransaction({
             transaction_id: transactionId,
             external_order_id: orderData.external_order_id || `EXT-${Date.now()}`,
-            order_id: orderResponse.order_id,
+            order_id: String(orderResponse.order_id || orderResponse.order?.id),
             total_cost: totalCost,
             payment_status: 'PENDING',
             stock_before: stockCheck.current_stock,
@@ -47,16 +48,17 @@ class TransactionService {
 
         // 6. Log audit
         await this.logAudit(transactionId, 'ORDER_CREATED', 'SYSTEM', {
-            order_id: orderResponse.order_id,
-            total_cost: totalCost
+            order_id: orderResponse.order_id || orderResponse.order?.id,
+            total_cost: totalCost,
+            order_status: orderResponse.order?.status
         });
 
-        console.log(`✅ Transaction created: ${transactionId}`);
+        console.log(`✅ Transaction created: ${transactionId}, Order ID: ${orderResponse.order_id || orderResponse.order?.id}`);
 
         return {
             success: true,
             transaction_id: transactionId,
-            order_id: orderResponse.order_id,
+            order_id: String(orderResponse.order_id || orderResponse.order?.id),
             total_cost: totalCost,
             payment_status: 'PENDING',
             message: 'Order created successfully. Please proceed to payment.'
@@ -99,7 +101,7 @@ class TransactionService {
             throw new Error('Payment already processed for this transaction');
         }
 
-        // 2. Process payment via payment service
+        // 2. Process payment via payment service (GraphQL)
         const paymentResponse = await this.callPaymentService({
             transaction_id: paymentData.transaction_id,
             amount: transaction.total_cost,
@@ -107,8 +109,9 @@ class TransactionService {
             currency: transaction.currency
         });
 
-        if (paymentResponse.status !== 'SUCCESS') {
-            throw new Error('Payment processing failed');
+        // Payment service returns 'SUCCESS' for confirmed, 'PENDING' for pending
+        if (paymentResponse.status !== 'SUCCESS' && paymentResponse.status !== 'PENDING') {
+            throw new Error(`Payment processing failed: ${paymentResponse.status}`);
         }
 
         // 3. Update inventory (deduct stock)
@@ -118,7 +121,20 @@ class TransactionService {
         
         const stockUpdate = await this.updateInventory(requestPayload.items || []);
 
-        // 4. Update transaction record
+        // 4. Update order status to 'confirmed' after payment is confirmed
+        let orderStatusUpdated = false;
+        if (paymentResponse.status === 'SUCCESS' && transaction.order_id) {
+            try {
+                await this.updateOrderStatus(transaction.order_id, 'confirmed');
+                orderStatusUpdated = true;
+                console.log(`✅ Order #${transaction.order_id} status updated to 'confirmed'`);
+            } catch (orderStatusError) {
+                console.warn(`⚠️  Failed to update order status: ${orderStatusError.message}`);
+                // Continue even if order status update fails
+            }
+        }
+
+        // 5. Update transaction record
         await TransactionModel.updateTransaction(paymentData.transaction_id, {
             payment_status: 'SUCCESS',
             payment_method: paymentData.payment_method,
@@ -127,14 +143,16 @@ class TransactionService {
             stock_after: stockUpdate.updated_stock,
             response_payload: {
             payment: paymentResponse,
-            stock: stockUpdate
+            stock: stockUpdate,
+            order_status_updated: orderStatusUpdated
             }
         });
 
-        // 5. Log audit
+        // 6. Log audit
         await this.logAudit(paymentData.transaction_id, 'PAYMENT_CONFIRMED', 'SYSTEM', {
             payment_id: paymentResponse.payment_id,
-            payment_method: paymentData.payment_method
+            payment_method: paymentData.payment_method,
+            order_status_updated: orderStatusUpdated
         });
 
         console.log(`✅ Payment confirmed: ${paymentData.transaction_id}`);
@@ -144,7 +162,7 @@ class TransactionService {
             transaction_id: paymentData.transaction_id,
             payment_status: 'SUCCESS',
             payment_id: paymentResponse.payment_id,
-            message: 'Payment confirmed and stock updated successfully'
+            message: 'Payment confirmed, stock updated, and order status updated successfully'
         };
 
         } catch (error) {
@@ -274,31 +292,99 @@ class TransactionService {
     }
 
     /**
-     * Call Order Service
+     * Call Order Service via GraphQL
      */
     static async callOrderService(orderData) {
         try {
+        // Transform orderData to match order-service GraphQL schema
+        const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:3000';
+        const graphqlEndpoint = `${orderServiceUrl}/graphql`;
+        
+        // Map items from stock-payment-service format to order-service format
+        const items = (orderData.items || []).map(item => ({
+            ingredientId: parseInt(item.product_id) || 0,
+            name: item.name || `Product ${item.product_id}`,
+            quantity: parseInt(item.quantity) || 1,
+            price: parseFloat(item.price) || 0,
+            unit: item.unit || 'kg'
+        }));
+
+        const graphqlMutation = {
+            query: `
+                mutation CreateOrder($input: CreateOrderInput!) {
+                    createOrder(input: $input) {
+                        success
+                        message
+                        order {
+                            id
+                            customerId
+                            customerName
+                            items {
+                                ingredientId
+                                name
+                                quantity
+                                price
+                                unit
+                            }
+                            totalPrice
+                            status
+                            createdAt
+                        }
+                    }
+                }
+            `,
+            variables: {
+                input: {
+                    customerId: parseInt(orderData.customerId) || 1,
+                    customerName: orderData.customerName || 'Customer',
+                    items: items,
+                    notes: orderData.notes || null,
+                    shippingAddress: orderData.shippingAddress || null
+                }
+            }
+        };
+
         const response = await axios.post(
-            `${process.env.ORDER_SERVICE_URL}/api/orders`,
-            orderData,
-            { timeout: 5000 }
+            graphqlEndpoint,
+            graphqlMutation,
+            { 
+                timeout: 10000,
+                headers: { 'Content-Type': 'application/json' }
+            }
         );
+
+        if (response.data.errors) {
+            throw new Error(response.data.errors[0].message || 'GraphQL error');
+        }
+
+        const result = response.data.data.createOrder;
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to create order');
+        }
 
         await this.logIntegrationStatus(
             null, 
             'ORDER_SERVICE', 
             'SUCCESS', 
             orderData, 
-            response.data
+            result
         );
 
-        return response.data;
+        return {
+            order_id: result.order.id,
+            order: result.order,
+            status: result.order.status,
+            created_at: result.order.createdAt
+        };
         } catch (error) {
         // Explicit error handling with timeout and connection error detection
         const errorMessage = error.code === 'ECONNREFUSED' 
             ? 'Order service connection refused - service may not be running'
             : error.code === 'ETIMEDOUT'
             ? 'Order service request timeout - service may be slow or unavailable'
+            : error.response?.data?.errors?.[0]?.message
+            ? error.response.data.errors[0].message
             : error.message || 'Unknown error';
         
         console.error(`❌ Order service error: ${errorMessage}`);
@@ -329,31 +415,104 @@ class TransactionService {
     }
 
     /**
-     * Call Payment Service
+     * Call Payment Service via GraphQL
      */
     static async callPaymentService(paymentData) {
         try {
+        // Get transaction to get order_id
+        const transaction = await TransactionModel.findByTransactionId(paymentData.transaction_id);
+        if (!transaction || !transaction.order_id) {
+            throw new Error('Transaction or order_id not found');
+        }
+
+        const paymentServiceUrl = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3000';
+        const graphqlEndpoint = `${paymentServiceUrl}/graphql`;
+        
+        // Map payment method from stock-payment-service format to payment-service format
+        const paymentMethodMap = {
+            'BANK_TRANSFER': 'transfer',
+            'TRANSFER': 'transfer',
+            'CASH': 'cash',
+            'E_WALLET': 'e_wallet',
+            'CREDIT_CARD': 'credit_card'
+        };
+        
+        const paymentMethod = paymentMethodMap[paymentData.payment_method?.toUpperCase()] || 
+                             paymentData.payment_method?.toLowerCase() || 
+                             'transfer';
+
+        const graphqlMutation = {
+            query: `
+                mutation CreatePayment($input: CreatePaymentInput!) {
+                    createPayment(input: $input) {
+                        success
+                        message
+                        payment {
+                            id
+                            orderId
+                            customerId
+                            customerName
+                            amount
+                            paymentMethod
+                            status
+                            createdAt
+                        }
+                    }
+                }
+            `,
+            variables: {
+                input: {
+                    orderId: parseInt(transaction.order_id) || parseInt(transaction.external_order_id?.replace('ORD-', '')) || 0,
+                    customerId: parseInt(transaction.request_payload?.customerId) || 1,
+                    customerName: transaction.request_payload?.customerName || 'Customer',
+                    amount: parseFloat(paymentData.amount) || parseFloat(transaction.total_cost) || 0,
+                    paymentMethod: paymentMethod,
+                    notes: `Transaction: ${paymentData.transaction_id}`
+                }
+            }
+        };
+
         const response = await axios.post(
-            `${process.env.PAYMENT_SERVICE_URL}/api/payments/process`,
-            paymentData,
-            { timeout: 5000 }
+            graphqlEndpoint,
+            graphqlMutation,
+            { 
+                timeout: 10000,
+                headers: { 'Content-Type': 'application/json' }
+            }
         );
+
+        if (response.data.errors) {
+            throw new Error(response.data.errors[0].message || 'GraphQL error');
+        }
+
+        const result = response.data.data.createPayment;
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to create payment');
+        }
 
         await this.logIntegrationStatus(
             paymentData.transaction_id, 
             'PAYMENT_SERVICE', 
             'SUCCESS', 
             paymentData, 
-            response.data
+            result
         );
 
-        return response.data;
+        return {
+            payment_id: result.payment.id,
+            payment: result.payment,
+            status: result.payment.status === 'confirmed' ? 'SUCCESS' : 'PENDING',
+            processed_at: result.payment.createdAt
+        };
         } catch (error) {
         // Explicit error handling with timeout and connection error detection
         const errorMessage = error.code === 'ECONNREFUSED' 
             ? 'Payment service connection refused - service may not be running'
             : error.code === 'ETIMEDOUT'
             ? 'Payment service request timeout - service may be slow or unavailable'
+            : error.response?.data?.errors?.[0]?.message
+            ? error.response.data.errors[0].message
             : error.message || 'Unknown error';
         
         console.error(`❌ Payment service error: ${errorMessage}`);
@@ -384,27 +543,74 @@ class TransactionService {
     }
 
     /**
-     * Update Inventory (deduct stock)
+     * Update Inventory (deduct stock) via GraphQL
      */
     static async updateInventory(items) {
         try {
-        const response = await axios.post(
-            `${process.env.INVENTORY_SERVICE_URL}/api/update-stock`,
-            { items, operation: 'DEDUCT' },
-            { timeout: 5000 }
-        );
+        const inventoryServiceUrl = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:3000';
+        const graphqlEndpoint = `${inventoryServiceUrl}/graphql`;
+        
+        // Update stock for each item using GraphQL mutation
+        const updatePromises = items.map(item => {
+            const graphqlMutation = {
+                query: `
+                    mutation UpdateStock($input: UpdateStockInput!) {
+                        updateStock(input: $input) {
+                            success
+                            message
+                            item {
+                                id
+                                name
+                                quantity
+                                unit
+                            }
+                        }
+                    }
+                `,
+                variables: {
+                    input: {
+                        id: String(item.product_id || item.ingredientId),
+                        quantityChange: -parseInt(item.quantity) || -1 // Negative to deduct stock
+                    }
+                }
+            };
 
+            return axios.post(
+                graphqlEndpoint,
+                graphqlMutation,
+                { 
+                    timeout: 10000,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            );
+        });
+
+        const responses = await Promise.all(updatePromises);
+        
+        // Check for errors
+        const errors = responses.filter(r => r.data.errors || !r.data.data?.updateStock?.success);
+        if (errors.length > 0) {
+            const errorMessages = errors.map(e => 
+                e.data?.errors?.[0]?.message || 
+                e.data?.data?.updateStock?.message || 
+                'Unknown error'
+            );
+            throw new Error(`Stock update failed: ${errorMessages.join(', ')}`);
+        }
+
+        const updatedItems = responses.map(r => r.data.data.updateStock.item);
+        
         await this.logIntegrationStatus(
             null, 
             'INVENTORY_SERVICE', 
             'SUCCESS', 
             { items }, 
-            response.data
+            { updatedItems }
         );
 
         return {
             updated: true,
-            updated_stock: response.data.stock
+            updated_stock: updatedItems
         };
         } catch (error) {
         // Explicit error handling with timeout and connection error detection
@@ -412,6 +618,8 @@ class TransactionService {
             ? 'Inventory service connection refused - service may not be running'
             : error.code === 'ETIMEDOUT'
             ? 'Inventory service request timeout - service may be slow or unavailable'
+            : error.response?.data?.errors?.[0]?.message
+            ? error.response.data.errors[0].message
             : error.message || 'Unknown error';
         
         console.error(`❌ Inventory service error: ${errorMessage}`);
@@ -440,6 +648,92 @@ class TransactionService {
             new_stock: 95 - item.quantity
             }))
         };
+        }
+    }
+
+    /**
+     * Update Order Status via GraphQL
+     */
+    static async updateOrderStatus(orderId, status) {
+        try {
+        const orderServiceUrl = process.env.ORDER_SERVICE_URL || 'http://order-service:3000';
+        const graphqlEndpoint = `${orderServiceUrl}/graphql`;
+        
+        const graphqlMutation = {
+            query: `
+                mutation UpdateOrderStatus($id: ID!, $status: OrderStatus!) {
+                    updateOrderStatus(id: $id, status: $status) {
+                        success
+                        message
+                        order {
+                            id
+                            status
+                            updatedAt
+                        }
+                    }
+                }
+            `,
+            variables: {
+                id: String(orderId),
+                status: status.toLowerCase() // Convert to lowercase to match enum
+            }
+        };
+
+        const response = await axios.post(
+            graphqlEndpoint,
+            graphqlMutation,
+            { 
+                timeout: 10000,
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+        if (response.data.errors) {
+            throw new Error(response.data.errors[0].message || 'GraphQL error');
+        }
+
+        const result = response.data.data.updateOrderStatus;
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to update order status');
+        }
+
+        await this.logIntegrationStatus(
+            null, 
+            'ORDER_SERVICE', 
+            'SUCCESS', 
+            { orderId, status }, 
+            result
+        );
+
+        return result.order;
+        } catch (error) {
+        const errorMessage = error.code === 'ECONNREFUSED' 
+            ? 'Order service connection refused - service may not be running'
+            : error.code === 'ETIMEDOUT'
+            ? 'Order service request timeout - service may be slow or unavailable'
+            : error.response?.data?.errors?.[0]?.message
+            ? error.response.data.errors[0].message
+            : error.message || 'Unknown error';
+        
+        console.error(`❌ Order status update error: ${errorMessage}`);
+        
+        await this.logIntegrationStatus(
+            null, 
+            'ORDER_SERVICE', 
+            'FAILED', 
+            { orderId, status }, 
+            null, 
+            errorMessage
+        );
+        
+        // Don't throw in development, just log warning
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error(`Order service unavailable: ${errorMessage}`);
+        }
+        
+        console.warn('⚠️  Order status update failed, continuing...');
+        return null;
         }
     }
 
