@@ -52,7 +52,7 @@ echo ""
 
 echo "4. Database Ports:"
 echo "------------------"
-echo -e "${CYAN}User DB:${NC}         localhost:5433"
+echo -e "${CYAN}User DB:${NC}         localhost:15433"
 echo -e "${CYAN}Inventory DB:${NC}    localhost:5434"
 echo -e "${CYAN}Payment DB:${NC}       localhost:5436"
 echo -e "${CYAN}Order DB:${NC}         localhost:5435"

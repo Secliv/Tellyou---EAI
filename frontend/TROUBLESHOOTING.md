@@ -5,7 +5,8 @@
 ### 1. Cek CORS Configuration
 
 Pastikan backend sudah mengizinkan request dari frontend. User Service sudah dikonfigurasi dengan CORS untuk:
-- `http://localhost:5173` (Frontend)
+- `http://localhost:3005` (Frontend - default)
+- `http://localhost:5173` (Frontend - legacy)
 - `http://localhost:3000` (Backend)
 
 ### 2. Cek Network Connection
@@ -128,7 +129,7 @@ docker compose logs -f frontend
    ```
 
 3. **Test dari Browser:**
-   - Buka http://localhost:5173
+   - Buka http://localhost:3005
    - Buka DevTools (F12)
    - Coba register/login
    - Lihat Network tab untuk melihat request/response
@@ -136,7 +137,7 @@ docker compose logs -f frontend
 4. **Cek CORS Headers:**
    ```bash
    curl -X OPTIONS http://localhost:3000/auth/register \
-     -H "Origin: http://localhost:5173" \
+     -H "Origin: http://localhost:3005" \
      -H "Access-Control-Request-Method: POST" \
      -v
    ```

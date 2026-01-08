@@ -441,6 +441,27 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.8rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.ingredients-cards::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ingredients-cards::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.ingredients-cards::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.ingredients-cards::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .ingredient-mini-card {

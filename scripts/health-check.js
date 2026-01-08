@@ -28,7 +28,7 @@ const services = {
     type: 'REST',
     health: 'http://localhost:3000/health',
     graphql: null,
-    db: { host: 'localhost', port: 5433, name: 'user_db', user: 'postgres', password: 'postgres' }
+    db: { host: 'localhost', port: 15433, name: 'user_db', user: 'postgres', password: 'postgres' }
   },
   'inventory-service': {
     port: 3001,

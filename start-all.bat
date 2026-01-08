@@ -10,7 +10,7 @@ timeout /t 5 /nobreak > nul
 
 echo.
 echo [2/6] Starting User Service on port 3000...
-start "User Service" cmd /c "cd provider-service\user-service && set PORT=3000 && set DB_HOST=localhost && set DB_PORT=5433 && set JWT_SECRET=your-secret-key-here && npm install 2>nul && node src/index.js"
+start "User Service" cmd /c "cd provider-service\user-service && set PORT=3000 && set DB_HOST=localhost && set DB_PORT=15433 && set JWT_SECRET=your-secret-key-here && npm install 2>nul && node src/index.js"
 timeout /t 2 /nobreak > nul
 
 echo.
@@ -38,14 +38,14 @@ echo   All Services Started!
 echo ========================================
 echo.
 echo Access URLs:
-echo   Frontend:          http://localhost:5173
+echo   Frontend:          http://localhost:3005
 echo   User Service:      http://localhost:3000
 echo   Inventory Service: http://localhost:3001/graphql
 echo   Payment Service:   http://localhost:3002/graphql
 echo   Order Service:     http://localhost:3003/graphql
 echo.
 echo Database Ports:
-echo   User DB:      localhost:5433
+echo   User DB:      localhost:15433
 echo   Inventory DB: localhost:5434
 echo   Order DB:     localhost:5435
 echo   Payment DB:   localhost:5436

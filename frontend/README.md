@@ -38,7 +38,7 @@ npm install
 npm run dev
 ```
 
-Frontend akan berjalan di http://localhost:5173
+Frontend akan berjalan di http://localhost:3005
 
 ### Build
 

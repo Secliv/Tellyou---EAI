@@ -129,7 +129,7 @@ Mengecek koneksi ke semua database:
 
 | Service | Database | Host | Port |
 |---------|----------|------|------|
-| User Service | user_db | localhost | 5433 |
+| User Service | user_db | localhost | 15433 |
 | Inventory Service | inventory_db | localhost | 5434 |
 | Payment Service | payment_db | localhost | 5436 |
 | Order Service | order_db | localhost | 5435 |
@@ -264,7 +264,7 @@ curl -X POST http://localhost:3003/graphql \
 
 ```bash
 # User Database
-psql -h localhost -p 5433 -U postgres -d user_db
+psql -h localhost -p 15433 -U postgres -d user_db
 
 # Inventory Database
 psql -h localhost -p 5434 -U postgres -d inventory_db

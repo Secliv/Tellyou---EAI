@@ -41,6 +41,7 @@ function Orders() {
   const fetchOrders = async () => {
     try {
       setLoading(true)
+      setError(null)
       const filters = filterStatus ? { status: filterStatus } : {}
       
       // For users, only fetch their own orders
@@ -49,7 +50,7 @@ function Orders() {
       }
       
       const result = await orderService.getAllOrders(filters)
-      if (result.success) {
+      if (result && result.success) {
         let orderList = result.orders || []
         // For users, filter by customerName (if customerId filter not supported by backend)
         if (!isAdmin() && user?.username) {
@@ -60,10 +61,16 @@ function Orders() {
         }
         setOrders(orderList)
       } else {
-        setError(result.message)
+        setError(result?.message || 'Gagal memuat data pesanan. Pastikan Order Service berjalan.')
       }
     } catch (err) {
-      setError(err.message || 'Failed to fetch orders')
+      console.error('Error fetching orders:', err)
+      // Prioritize error.message (which we set in executeQuery)
+      const errorMessage = err.message || 
+                          err.response?.data?.errors?.[0]?.message || 
+                          err.response?.data?.message || 
+                          'Network Error: Pastikan Order Service berjalan di http://localhost:3003'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -75,14 +82,16 @@ function Orders() {
       const result = await inventoryService.getAll({})
       console.log('Inventory result:', result) // Debug log
       if (result.success) {
-        // Ensure all items have proper price as number
-        const items = (result.items || []).map(item => ({
-          ...item,
-          id: item.id,
-          price: parseFloat(item.price) || 0,
-          quantity: parseFloat(item.quantity) || 0
-        }))
-        console.log('Processed ingredients:', items) // Debug log
+        // Ensure all items have proper price as number and filter only items with stock available
+        const items = (result.items || [])
+          .map(item => ({
+            ...item,
+            id: item.id,
+            price: parseFloat(item.price) || 0,
+            quantity: parseFloat(item.quantity) || 0
+          }))
+          .filter(item => item.quantity > 0) // Only show items with stock available
+        console.log('Processed ingredients (with stock):', items) // Debug log
         setIngredients(items)
       }
     } catch (err) {
@@ -477,12 +486,14 @@ function Orders() {
             
             {/* Available Ingredients Preview */}
             <div className="ingredients-preview">
-              <h4>📦 Bahan Tersedia</h4>
+              <h4>📦 Bahan Tersedia ({ingredients.length} bahan)</h4>
               {loadingIngredients ? (
                 <p>Memuat bahan...</p>
+              ) : ingredients.length === 0 ? (
+                <p>Tidak ada bahan tersedia</p>
               ) : (
                 <div className="ingredients-cards">
-                  {ingredients.slice(0, 6).map(ing => (
+                  {ingredients.map(ing => (
                     <div key={ing.id} className="ingredient-mini-card">
                       <span className="ing-name">{ing.name}</span>
                       <span className="ing-price">{formatPrice(ing.price)}/{ing.unit}</span>

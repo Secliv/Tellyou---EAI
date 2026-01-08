@@ -47,9 +47,10 @@ function Payments() {
   const fetchPayments = async () => {
     try {
       setLoading(true)
+      setError('')
       const filters = filterStatus ? { status: filterStatus } : {}
       const result = await paymentService.getAll(filters)
-      if (result.success) {
+      if (result && result.success) {
         let paymentList = result.payments || []
         // For users, filter to only their payments
         if (!isAdmin() && user) {
@@ -60,10 +61,16 @@ function Payments() {
         }
         setPayments(paymentList)
       } else {
-        setError(result.message)
+        setError(result?.message || 'Gagal memuat data pembayaran. Pastikan Payment Service berjalan.')
       }
     } catch (err) {
-      setError('Gagal memuat data pembayaran. Pastikan Payment Service berjalan.')
+      console.error('Error fetching payments:', err)
+      // Prioritize error.message (which we set in executeQuery)
+      const errorMessage = err.message || 
+                          err.response?.data?.errors?.[0]?.message || 
+                          err.response?.data?.message || 
+                          'Gagal memuat data pembayaran. Pastikan Payment Service berjalan di http://localhost:3002'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -302,26 +309,6 @@ function Payments() {
     <div className="payments">
       <div className="payments-header">
         <h1>{isAdmin() ? '💰 Manajemen Pembayaran' : '💳 Pembayaran Saya'}</h1>
-        {!isAdmin() && pendingOrders.length > 0 && (
-          <button className="btn-primary" onClick={async () => {
-            // Refresh payments data before opening modal
-            await fetchPayments()
-            // Check if there are still orders without payment
-            if (pendingOrders.length > 0) {
-              const firstOrder = pendingOrders[0]
-              const existingPayment = payments.find(p => p.orderId === firstOrder.id)
-              if (existingPayment) {
-                toast.error(`Pembayaran untuk Order #${firstOrder.id} sudah ada. Silakan refresh halaman.`)
-                fetchPendingOrders()
-                return
-              }
-              setSelectedOrderForPayment(firstOrder)
-            }
-            setShowPaymentModal(true)
-          }}>
-            + Bayar Pesanan
-          </button>
-        )}
       </div>
 
       {/* Stats - Admin Only */}

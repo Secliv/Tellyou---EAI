@@ -53,12 +53,12 @@ if (response.data && response.data.success && response.data.data) {
 ## Testing
 
 1. **Test Register:**
-   - Buka http://localhost:5173/register
+   - Buka http://localhost:3005/register
    - Isi form dan submit
    - Harus redirect ke dashboard jika berhasil
 
 2. **Test Login:**
-   - Buka http://localhost:5173/login
+   - Buka http://localhost:3005/login
    - Login dengan credentials yang sudah terdaftar
    - Harus redirect ke dashboard jika berhasil
 

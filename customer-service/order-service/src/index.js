@@ -13,13 +13,18 @@ const resolvers = require('./graphql/resolvers');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS configuration
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+// CORS configuration - use cors package with explicit origin array
+const corsOptions = {
+  origin: ['http://localhost:3005', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS to all routes
+app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json());
@@ -55,12 +60,9 @@ async function startServer() {
 
   await apolloServer.start();
 
-  // Apply GraphQL middleware
+  // Apply GraphQL middleware with CORS
   app.use('/graphql', 
-    cors({
-      origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
-      credentials: true
-    }),
+    cors(corsOptions),
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req }) => {

@@ -18,7 +18,7 @@ $userServiceJob = Start-Job -ScriptBlock {
     Set-Location $using:PWD\provider-service\user-service
     $env:PORT = "3000"
     $env:DB_HOST = "localhost"
-    $env:DB_PORT = "5433"
+    $env:DB_PORT = "15433"
     $env:JWT_SECRET = "your-secret-key-here"
     node src/index.js
 }
@@ -46,7 +46,7 @@ Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "  All Services Started!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "`nAccess URLs:" -ForegroundColor Cyan
-Write-Host "  Frontend:      http://localhost:5173" -ForegroundColor White
+Write-Host "  Frontend:      http://localhost:3005" -ForegroundColor White
 Write-Host "  User Service:  http://localhost:3000" -ForegroundColor White
 Write-Host "  Order Service: http://localhost:3003" -ForegroundColor White
 Write-Host "  GraphQL:       http://localhost:3003/graphql" -ForegroundColor White

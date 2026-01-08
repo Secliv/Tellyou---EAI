@@ -13,7 +13,7 @@ docker compose up -d --build frontend
 
 ### 2. Akses Frontend
 
-Frontend akan berjalan di: **http://localhost:5173**
+Frontend akan berjalan di: **http://localhost:3005**
 
 ### 3. Cek Status
 
@@ -82,14 +82,16 @@ server: {
    docker compose logs frontend
    ```
 
-### Port 5173 sudah digunakan
+### Port 3005 sudah digunakan
 
-Jika port 5173 sudah digunakan, ubah di `docker-compose.yml`:
+Jika port 3005 sudah digunakan, ubah di `docker-compose.yml`:
 
 ```yaml
 ports:
-  - "5174:5173"  # Gunakan port 5174 di host
+  - "3006:3005"  # Gunakan port 3006 di host
 ```
+
+Dan update `vite.config.js` untuk menggunakan port yang sama di dalam container.
 
 ### Hot reload tidak bekerja
 
